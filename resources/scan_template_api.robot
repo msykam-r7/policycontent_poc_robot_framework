@@ -723,6 +723,26 @@ Create Template Copy For OS With Policies
         END
     END
     
+    # Enable SCAN data (persistARFResults)
+    ${persist_arf_elements}=    Get Elements    ${xml_root}    .//persistARFResults
+    ${persist_arf_count}=    Get Length    ${persist_arf_elements}
+    IF    ${persist_arf_count} > 0
+        FOR    ${persist_elem}    IN    @{persist_arf_elements}
+            Set Element Attribute    ${persist_elem}    enabled    1
+            Log    Enabled SCAN data (persistARFResults enabled=1)    console=True
+        END
+    END
+    
+    # Enable enhanced logging (debugLogging)
+    ${debug_log_elements}=    Get Elements    ${xml_root}    .//debugLogging
+    ${debug_log_count}=    Get Length    ${debug_log_elements}
+    IF    ${debug_log_count} > 0
+        FOR    ${debug_elem}    IN    @{debug_log_elements}
+            Set Element Attribute    ${debug_elem}    enabled    1
+            Log    Enabled enhanced logging (debugLogging enabled=1)    console=True
+        END
+    END
+    
     # Generate formatted XML string
     ${xml_string}=    Element To String    ${xml_root}
     ${temp_path}=    Set Variable    ${EXECDIR}/data/templates/temp_template.xml
