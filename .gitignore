@@ -1,0 +1,23 @@
+# Temporary Nexpose repository clone
+.temp_nexpose_repo/
+
+# Robot Framework outputs
+log.html
+output.xml
+report.html
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
