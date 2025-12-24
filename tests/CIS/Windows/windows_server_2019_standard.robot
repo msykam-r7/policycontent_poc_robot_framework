@@ -1,30 +1,39 @@
 *** Settings ***
 Documentation     Windows Server 2019 CIS Benchmark Compliance Testing
+...               
+...               This test is PARALLEL-EXECUTION SAFE:
+...               - Uses unique site and template names (timestamp + PID + random)
+...               - Test-scoped session management
+...               - No shared global resources
 
 Resource          ../../../resources/e2e_benchmark_testing.robot
+Resource          ../../../resources/parallel_utils.robot
 
 
 *** Test Cases ***
 Windows 2019-CIS Benchmarks
     [Documentation]    Validates Windows Server 2019 against CIS Level 1 benchmark
-    [Tags]    windows    windows2019    cis    benchmark    level1    compliance    e2e
-    [Teardown]    Safe Cleanup Test Resources    ${results}
+    ...    
+    ...    PARALLEL EXECUTION: Safe to run with other tests using pabot
+    [Tags]    windows    windows2019    cis    benchmark    level1    compliance    e2e    parallel-safe
     
-    # Generate unique identifiers for this test run
-    ${timestamp}=    Evaluate    int(__import__('time').time())
-    ${site_name}=    Set Variable    Windows2019_CIS_Level1_${timestamp}
-    ${template_name}=    Set Variable    windows2019_cis_template_${timestamp}
+    # Initialize test session for parallel execution safety
+    [Setup]    Initialize Test Session
     
-    # Execute Ubuntu 24.04 CIS Level 1 compliance test
+    # Generate base names (will be made unique automatically by framework)
+    ${site_name}=    Set Variable    Windows2019_CIS_Level1
+    ${template_name}=    Set Variable    windows2019_cis_template
+    
+    # Execute Windows Server 2019 CIS Level 1 compliance test
     ${results}=    Run Complete E2E Benchmark Test
     ...    os_identifier=CIS_Microsoft_Windows-Server-2019
     ...    vm_cred_types=compliance,server
-    ...    os_benchmark_identifier=Windows_Server_2019_Standard_CIS_Benchmark,Microsoft_Windows_Server_2019_Stand-alone
-    ...    version=3.0.0
+    ...    os_benchmark_identifier=Microsoft_Windows_Server_2019_Stand-alone
+    ...    version=3.0.1
     ...    scan_template=cis
-    ...    server_service=ssh
+    ...    server_service=cifs
     ...    scope=S
     ...    site_name=${site_name}
     ...    template_name=${template_name}
     ...    policy_list=all
-    ...    csv_file=${EXECDIR}/testdata/validation_rules/CIS/Ubuntu/ubuntu_stig/ubuntu20.04_rules.csv
+    ...    csv_file=${EXECDIR}/testdata/validation_rules/CIS/WindowsServer2019/level1_member_server.csv

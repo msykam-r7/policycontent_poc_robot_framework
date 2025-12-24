@@ -28,9 +28,5 @@ Oracle 19c - CIS Benchmark Level 1 Database Compliance Test
     ...    template_name=${template_name}
     ...    policy_list=all
     ...    csv_file=${EXECDIR}/testdata/validation_rules/CIS/Oracle19c/level1_database.csv
-    
-    [Teardown]    Cleanup Test Resources    ${results}[site_id]    ${results}[template_id]
-    
-   
 
 

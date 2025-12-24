@@ -27,9 +27,5 @@ Windows 10 - DISA STIG Compliance Test
     ...    template_name=${template_name}
     ...    policy_list=all
     ...    csv_file=${EXECDIR}/testdata/validation_rules/DISA/Windows10/stig_baseline.csv
-    
-    [Teardown]    Cleanup Test Resources    ${results}[site_id]    ${results}[template_id]
-    
-   
 
 

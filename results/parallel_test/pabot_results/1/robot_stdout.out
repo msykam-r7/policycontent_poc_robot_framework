@@ -1,0 +1,39 @@
+==============================================================================
+Suites                                                                        
+==============================================================================
+Suites.Windows Server 2019 Standard :: Windows Server 2019 CIS Benchmark Co...
+==============================================================================
+Windows 2019-CIS Benchmarks :: Validates Windows Server 2019 again... ========================================
+TEST SESSION INITIALIZED
+Session ID: 08DBE2E94621FF7C3D7417CC5ECB0D6999EA5450
+Process ID: 82257
+========================================
+========================================
+READING POLICIES FROM JSON FILE
+========================================
+Benchmark: CIS
+OS Name: Microsoft Windows Server 2019
+Version: 3.0.1
+JSON File: /Users/msykam/poc_robot_framework/data/policies/cis_policies.json
+========================================
+========================================
+ERROR: NO MATCHING POLICY FOUND
+========================================
+Searched for:
+OS Name: Microsoft Windows Server 2019
+Version: 3.0.1
+In file: /Users/msykam/poc_robot_framework/data/policies/cis_policies.json
+========================================
+| FAIL |
+No matching policy found for OS "Microsoft Windows Server 2019" with version "3.0.1" in /Users/msykam/poc_robot_framework/data/policies/cis_policies.json
+
+Also teardown failed:
+Variable '${results}' not found.
+------------------------------------------------------------------------------
+Suites.Windows Server 2019 Standard :: Windows Server 2019 CIS Ben... | FAIL |
+1 test, 0 passed, 1 failed
+==============================================================================
+Suites                                                                | FAIL |
+1 test, 0 passed, 1 failed
+==============================================================================
+Output:  /Users/msykam/poc_robot_framework/results/parallel_test/pabot_results/1/output.xml

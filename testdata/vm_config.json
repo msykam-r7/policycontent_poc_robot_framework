@@ -1,5 +1,6 @@
 {
     "CIS": {
+        
         "Amazon-Linux-2": {
             "compliance": {
                 "server": {
@@ -908,18 +909,20 @@
             }
         },
         "NGINX": {
-            "compliance": {
-                "server": {
-                    "ip": "10.4.27.102",
-                    "username": "nginx",
-                    "password": "notpassword"
-                }
-            },
-            "not-compliance": {
-                "server": {
-                    "ip": "10.4.27.102",
-                    "username": "nginx",
-                    "password": "notpassword"
+            "NGINX": {
+                "compliance": {
+                    "server": {
+                        "ip": "10.4.30.156",
+                        "username": "root",
+                        "password": "notpassword"
+                    }
+                },
+                "not-compliance": {
+                    "server": {
+                        "ip": "10.4.27.102",
+                        "username": "nginx",
+                        "password": "notpassword"
+                    }
                 }
             }
         },

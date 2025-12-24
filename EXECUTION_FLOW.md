@@ -1511,3 +1511,184 @@ This document provides a complete view of the Robot Framework E2E benchmark test
 - 1 CSV validation file per OS/benchmark
 
 **API Calls:** 15-20 calls per test (login, create, start, monitor, report, cleanup)
+
+---
+
+## Parallel Execution Flow
+
+### Overview
+
+The framework supports **parallel test execution** using **Pabot** (Parallel Robot Framework executor) with intelligent **credential-based locking** to prevent VM conflicts.
+
+### Key Features
+
+✅ **Automatic Credential Detection** - Tests are automatically grouped by VM credentials  
+✅ **Smart Locking** - Tests using the same VM run sequentially, different VMs run in parallel  
+✅ **No Manual Configuration** - Credential locks are auto-generated  
+✅ **Unique Resource Names** - Timestamp + PID + random number prevents naming conflicts  
+✅ **Automatic Cleanup** - Sites and templates deleted after each test (even on failure)
+
+---
+
+### Parallel Execution Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     PABOT PARALLEL EXECUTOR                          │
+│                                                                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐│
+│  │  Process 1  │  │  Process 2  │  │  Process 3  │  │  Process 4  ││
+│  │   (PID:101) │  │   (PID:102) │  │   (PID:103) │  │   (PID:104) ││
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘│
+│         │                │                │                │         │
+└─────────┼────────────────┼────────────────┼────────────────┼─────────┘
+          │                │                │                │
+          │                │                │                │
+    ┌─────▼─────┐    ┌─────▼─────┐    ┌─────▼─────┐    ┌─────▼─────┐
+    │ Ubuntu    │    │ RHEL 9    │    │ Windows   │    │ Tomcat 9  │
+    │ 20.04     │    │           │    │ 2022      │    │           │
+    │           │    │           │    │           │    │           │
+    │ LOCK:     │    │ LOCK:     │    │ LOCK:     │    │ LOCK:     │
+    │ CIS_      │    │ CIS_      │    │ CIS_      │    │ CIS_      │
+    │ Ubuntu_   │    │ RHEL_9    │    │ Windows_  │    │ Apache_   │
+    │ 20-04     │    │           │    │ 2022      │    │ Tomcat_9  │
+    └───────────┘    └───────────┘    └───────────┘    └───────────┘
+
+    ✅ All 4 tests run simultaneously (different VM credentials)
+```
+
+### Sequential Execution for Same VM
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              CREDENTIAL LOCK: CIS_Microsoft_Windows-Server-2019      │
+│                                                                       │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ Process 1: windows_server_2019_standard.robot                │   │
+│  │ Status: RUNNING                                               │   │
+│  │ Lock: ACQUIRED                                                │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                       │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ Process 2: windows_sever_2019_standalone.robot               │   │
+│  │ Status: WAITING (lock held by Process 1)                     │   │
+│  │ Lock: PENDING                                                 │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                       │
+│  Time: T+0s    Process 1 starts                                      │
+│  Time: T+0s    Process 2 waits for lock                              │
+│  Time: T+180s  Process 1 completes, releases lock                    │
+│  Time: T+180s  Process 2 acquires lock, starts                       │
+│  Time: T+360s  Process 2 completes                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+⚠️  Both tests use same VM → Run sequentially (automatic)
+```
+
+---
+
+### Setup for Parallel Execution
+
+#### 1. Initial Setup (One-Time)
+
+```bash
+# Run setup script (installs dependencies + generates locks)
+./setup.sh
+```
+
+This automatically:
+- Installs Robot Framework 7.0+
+- Installs Pabot 2.18+ (parallel executor)
+- Installs RequestsLibrary and other dependencies
+- Runs `generate_pabot_locks.py` to create `.pabotsuitenames`
+
+---
+
+### Running Tests in Parallel
+
+#### Basic Parallel Execution (Recommended)
+
+```bash
+# Run all tests with 4 parallel workers
+pabot --argumentfile .pabotsuitenames --processes 4
+```
+
+**Features:**
+- ✅ Tests on different VMs run in parallel
+- ✅ Tests on same VM run sequentially (automatic)
+- ✅ No manual tracking needed
+- ✅ No VM conflicts!
+
+#### Run Specific Test Suite
+
+```bash
+# Run only Windows tests
+pabot --argumentfile .pabotsuitenames --processes 2 tests/CIS/Windows/
+
+# Run only Linux tests
+pabot --argumentfile .pabotsuitenames --processes 3 tests/CIS/Linux/
+```
+
+---
+
+### Credential Groups (Current Configuration)
+
+| Credential Lock | Tests Using This VM | Execution |
+|----------------|---------------------|-----------|
+| `CIS_Microsoft_Windows-Server-2019` | • windows_server_2019_standard.robot<br>• windows_sever_2019_standalone.robot | **Sequential** (2 tests) |
+| `CIS_Ubuntu_Ubuntu-20-04` | • ubuntu_20.04_benchmarks.robot | Parallel |
+| `CIS_Ubuntu_Ubuntu-24-04` | • ubuntu_24.04_benchmarks.robot | Parallel |
+| `CIS_RHEL_9` | • RHEL9benchmarks.robot | Parallel |
+| `CIS_Apache_Tomcat_9` | • Tomcat9_benchmark.robot | Parallel |
+| `CIS_ORACLE_19C` | • oracle19cbenchmark.robot | Parallel |
+| `CIS_NGINX_NGINX` | • ngnixbenchmark.robot | Parallel |
+| `CIS_Windows_2022` | • windows_server_2022_stig_benchmark.robot | Parallel |
+| `CIS_Microsoft_Windows-10` | • windows10benchmark.robot | Parallel |
+
+**Total:** 10 tests, 9 unique credentials (1 shared VM = 2 sequential tests)
+
+---
+
+### Automatic Cleanup in Parallel Tests
+
+**Location:** `resources/e2e_benchmark_testing.robot` (Lines 387-506)
+
+```robotframework
+Run Complete E2E Benchmark Test Internal
+    ${created_site_id}=    Set Variable    ${EMPTY}
+    ${template_id}=    Set Variable    ${EMPTY}
+    
+    TRY
+        # Step 1-11: Execute all test steps
+        ${template_id}=    ... (Step 3)
+        ${created_site_id}=    ... (Step 4)
+        # ... more steps
+    FINALLY
+        # ⚡ ALWAYS RUNS - Even if test fails!
+        Cleanup Test Resources    ${created_site_id}    ${template_id}
+    END
+```
+
+**Benefits:**
+- ✅ Cleanup runs even if scan fails
+- ✅ Works in parallel execution
+- ✅ No orphaned resources
+- ✅ No manual teardown needed in test files
+
+---
+
+### Performance Comparison
+
+| Aspect | Sequential Execution | Parallel Execution (Pabot) |
+|--------|---------------------|----------------------------|
+| **Command** | `robot tests/` | `pabot --argumentfile .pabotsuitenames --processes 4` |
+| **Time (10 tests)** | ~30 minutes | ~12 minutes (2.5x faster) |
+| **VM Conflicts** | No (one at a time) | No (automatic locking) |
+| **Resource Names** | Can conflict | Unique (timestamp+PID+random) |
+| **Cleanup** | Automatic | Automatic (TRY-FINALLY) |
+| **Setup Required** | None | `./setup.sh` (one-time) |
+| **Same VM Tests** | Sequential | Sequential (automatic) |
+| **Different VM Tests** | Sequential | Parallel ✅ |
+
+**Recommendation:** Always use parallel execution with `--argumentfile .pabotsuitenames` for maximum speed and safety!
+

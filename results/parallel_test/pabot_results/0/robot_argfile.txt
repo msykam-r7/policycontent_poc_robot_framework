@@ -1,0 +1,18 @@
+--name Suites
+--suite Suites.RHEL9benchmarks
+--variable CALLER_ID:6794be63082a4878b53a79758031d6b7
+--variable PABOTLIBURI:127.0.0.1:8270
+--variable PABOTEXECUTIONPOOLID:1
+--variable PABOTISLASTEXECUTIONINPOOL:0
+--variable PABOTNUMBEROFPROCESSES:2
+--variable PABOTQUEUEINDEX:0
+--variable PABOTLASTLEVEL:Suites.RHEL9benchmarks
+--outputdir results/parallel_test/pabot_results/0
+--listener RobotStackTracer
+--log NONE
+--report NONE
+--xunit NONE
+--consolecolors off
+--consolemarkers off
+tests/CIS/Windows/windows_server_2019_standard.robot
+tests/CIS/Linux/RHEL/RHEL9benchmarks.robot

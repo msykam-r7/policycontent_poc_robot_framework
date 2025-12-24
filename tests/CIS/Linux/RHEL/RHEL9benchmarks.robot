@@ -74,10 +74,6 @@ RHEL 9 - CIS Benchmark Level 1 Server Compliance Test
     ...    template_name=${template_name}
     ...    policy_list=all
     ...    csv_file=${EXECDIR}/testdata/validation_rules/CIS/RHEL9/level1_server.csv
-    
-    [Teardown]    Cleanup Test Resources    ${results}[site_id]    ${results}[template_id]
-
-    
    
 
 

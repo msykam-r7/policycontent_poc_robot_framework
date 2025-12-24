@@ -25,6 +25,7 @@ Resource          site.robot
 Resource          scan_template_api.robot
 Resource          scan_operations.robot
 Resource          report_operations.robot
+Resource          parallel_utils.robot
 
 
 *** Keywords ***
@@ -337,6 +338,10 @@ Run Complete E2E Benchmark Test Internal
     ...    - validate_compliance: Whether to validate compliance (default: ${TRUE})
     ...    - expected_vuln_count: Expected vulnerability count for compliance (default: 0)
     ...    
+    ...    AUTOMATIC CLEANUP:
+    ...    This keyword automatically deletes the site and template after execution,
+    ...    even if the test fails. No [Teardown] needed in test cases!
+    ...    
     ...    EXAMPLE:
     ...    Run Complete E2E Benchmark Test
     ...        benchmark=CIS
@@ -372,136 +377,146 @@ Run Complete E2E Benchmark Test Internal
     ...    ${validate_compliance}=${TRUE}
     ...    ${expected_vuln_count}=0
     
-    # Initialize results dictionary
+    # Initialize results dictionary and cleanup tracking variables
     ${results}=    Create Dictionary
     ${created_site_id}=    Set Variable    ${EMPTY}
     ${template_id}=    Set Variable    ${EMPTY}
     
-    # Step 0: Get policies from JSON file based on benchmark, OS, and version
-    ${policy_info}=    Get Policies From JSON    ${benchmark}    ${os_name}    ${version}
+    # Initialize results dictionary and cleanup tracking variables
+    ${results}=    Create Dictionary
+    ${created_site_id}=    Set Variable    ${EMPTY}
+    ${template_id}=    Set Variable    ${EMPTY}
     
-    # Determine which profile to use
-    ${available_policies}=    Set Variable    ${policy_info}[policies]
-    
-    IF    '${profile_name}' == '${EMPTY}'
-        # Use first available policy if profile_name not specified
-        ${profile}=    Set Variable    ${available_policies}[0]
-        Log    Auto-selected profile: ${profile}    console=True
-    ELSE
-        # Use specified profile_name - need to find matching policy ID
-        ${profile_found}=    Set Variable    ${FALSE}
-        FOR    ${policy}    IN    @{available_policies}
-            # Extract profile name from policy ID (e.g., xccdf_org.cisecurity.benchmarks_profile_Level_1_-_Server -> Level 1 - Server)
-            ${extracted_name}=    Evaluate    $policy.split('_profile_')[-1].replace('_', ' ') if '_profile_' in $policy else $policy
-            ${name_matches}=    Evaluate    '''${extracted_name}''' == '''${profile_name}'''
-            IF    ${name_matches}
-                ${profile}=    Set Variable    ${policy}
-                ${profile_found}=    Set Variable    ${TRUE}
-                Log    Matched profile: ${profile}    console=True
-                BREAK
+    TRY
+        # Step 0: Get policies from JSON file based on benchmark, OS, and version
+        ${policy_info}=    Get Policies From JSON    ${benchmark}    ${os_name}    ${version}
+        
+        # Determine which profile to use
+        ${available_policies}=    Set Variable    ${policy_info}[policies]
+        
+        IF    '${profile_name}' == '${EMPTY}'
+            # Use first available policy if profile_name not specified
+            ${profile}=    Set Variable    ${available_policies}[0]
+            Log    Auto-selected profile: ${profile}    console=True
+        ELSE
+            # Use specified profile_name - need to find matching policy ID
+            ${profile_found}=    Set Variable    ${FALSE}
+            FOR    ${policy}    IN    @{available_policies}
+                # Extract profile name from policy ID (e.g., xccdf_org.cisecurity.benchmarks_profile_Level_1_-_Server -> Level 1 - Server)
+                ${extracted_name}=    Evaluate    $policy.split('_profile_')[-1].replace('_', ' ') if '_profile_' in $policy else $policy
+                ${name_matches}=    Evaluate    '''${extracted_name}''' == '''${profile_name}'''
+                IF    ${name_matches}
+                    ${profile}=    Set Variable    ${policy}
+                    ${profile_found}=    Set Variable    ${TRUE}
+                    Log    Matched profile: ${profile}    console=True
+                    BREAK
+                END
+            END
+            IF    not ${profile_found}
+                Fail    Profile "${profile_name}" not found in available policies: ${available_policies}
             END
         END
-        IF    not ${profile_found}
-            Fail    Profile "${profile_name}" not found in available policies: ${available_policies}
-        END
-    END
-    
-    Set To Dictionary    ${results}    profile=${profile}
-    Set To Dictionary    ${results}    available_policies=${available_policies}
-    Set To Dictionary    ${results}    policy_info=${policy_info}
-    
-    # Step 1: Login
-    ${session_id}=    Execute Login Step
-    Set To Dictionary    ${results}    session_id    ${session_id}
-    
-    # Step 2: Get Engine (if not provided)
-    ${selected_engine_id}=    Execute Engine Selection Step    ${engine_id}
-    Set To Dictionary    ${results}    engine_id    ${selected_engine_id}
-    
-    # Step 3: Process Template
-    ${template_result}=    Execute Template Processing Step
-    ...    ${scan_template}
-    ...    ${os_name}
-    ...    ${version}
-    ...    ${policy_list}
-    ...    ${template_name}
-    
-    ${template_id}=    Set Variable    ${template_result}[template_id]
-    Set To Dictionary    ${results}    template_id    ${template_id}
-    Set To Dictionary    ${results}    formatted_policies    ${template_result}[formatted_policies]
-    Set To Dictionary    ${results}    policy_count    ${template_result}[policy_count]
-    
-    # Step 4: Create or Update Site
-    ${created_site_id}=    Execute Site Creation Step
-    ...    ${site_name}
-    ...    ${selected_engine_id}
-    ...    ${template_result}[template_id]
-    ...    ${benchmark}
-    ...    ${vm_os}
-    ...    ${vm_version}
-    ...    ${service}
-    ...    ${scope}
-    ...    ${site_id}
-    ...    @{vm_cred_types}
-    
-    Set To Dictionary    ${results}    site_id    ${created_site_id}
-    
-    # Step 5: Start Scan
-    ${scan_result}=    Execute Scan Start Step
-    ...    ${created_site_id}
-    ...    ${selected_engine_id}
-    ...    ${site_name}
-    
-    Set To Dictionary    ${results}    scan_id    ${scan_result}[scan_id]
-    
-    # Step 6: Monitor Scan
-    ${monitor_result}=    Execute Scan Monitoring Step
-    ...    ${scan_result}[scan_id]
-    ...    ${created_site_id}
-    
-    Set To Dictionary    ${results}    scan_status    ${monitor_result}[status]
-    Set To Dictionary    ${results}    scan_elapsed_time    ${monitor_result}[elapsed_time]
-    
-    # Step 7: Validate Scan Completion
-    ${scan_details}=    Execute Scan Validation Step
-    ...    ${scan_result}[scan_id]
-    ...    ${created_site_id}
-    ...    ${validate_compliance}
-    ...    ${expected_vuln_count}
-    
-    Set To Dictionary    ${results}    scan_details    ${scan_details}
-    
-    # Step 8: Get Policy Natural ID (for first policy)
-    ${policy_natural_ids}=    Execute Policy Natural ID Retrieval Step
-    ...    ${template_result}[formatted_policies]
-    
-    Set To Dictionary    ${results}    policy_natural_ids    ${policy_natural_ids}
-    
-    # Step 9: Generate Report
-    ${report_result}=    Execute Report Generation Step
-    ...    ${created_site_id}
-    ...    ${policy_natural_ids}
-    
-    Set To Dictionary    ${results}    report_ids    ${report_result}[report_ids]
-    
-    # Step 10: Validate Report from CSV
-    ${validation_result}=    Execute Report Validation Step
-    ...    ${report_result}[report_ids]
-    ...    ${csv_file}
         
-    Set To Dictionary    ${results}    validation_passed    ${validation_result}[passed]
-    Set To Dictionary    ${results}    validation_failed    ${validation_result}[failed]
-    Set To Dictionary    ${results}    os_name    ${os_name}
-    Set To Dictionary    ${results}    benchmark    ${benchmark}
-    Set To Dictionary    ${results}    version    ${version}
-    
-    # Step 11: Validate Compliance Results
-    Validate Compliance Results
-    ...    os_name=${os_name}
-    ...    benchmark=${benchmark}
-    ...    version=${version}
-    ...    validation_passed=${validation_result}[passed]
-    ...    validation_failed=${validation_result}[failed]
+        Set To Dictionary    ${results}    profile=${profile}
+        Set To Dictionary    ${results}    available_policies=${available_policies}
+        Set To Dictionary    ${results}    policy_info=${policy_info}
+        
+        # Step 1: Login
+        ${session_id}=    Execute Login Step
+        Set To Dictionary    ${results}    session_id    ${session_id}
+        
+        # Step 2: Get Engine (if not provided)
+        ${selected_engine_id}=    Execute Engine Selection Step    ${engine_id}
+        Set To Dictionary    ${results}    engine_id    ${selected_engine_id}
+        
+        # Step 3: Process Template
+        ${template_result}=    Execute Template Processing Step
+        ...    ${scan_template}
+        ...    ${os_name}
+        ...    ${version}
+        ...    ${policy_list}
+        ...    ${template_name}
+        
+        ${template_id}=    Set Variable    ${template_result}[template_id]
+        Set To Dictionary    ${results}    template_id    ${template_id}
+        Set To Dictionary    ${results}    formatted_policies    ${template_result}[formatted_policies]
+        Set To Dictionary    ${results}    policy_count    ${template_result}[policy_count]
+        
+        # Step 4: Create or Update Site
+        ${created_site_id}=    Execute Site Creation Step
+        ...    ${site_name}
+        ...    ${selected_engine_id}
+        ...    ${template_result}[template_id]
+        ...    ${benchmark}
+        ...    ${vm_os}
+        ...    ${vm_version}
+        ...    ${service}
+        ...    ${scope}
+        ...    ${site_id}
+        ...    @{vm_cred_types}
+        
+        Set To Dictionary    ${results}    site_id    ${created_site_id}
+        
+        # Step 5: Start Scan
+        ${scan_result}=    Execute Scan Start Step
+        ...    ${created_site_id}
+        ...    ${selected_engine_id}
+        ...    ${site_name}
+        
+        Set To Dictionary    ${results}    scan_id    ${scan_result}[scan_id]
+        
+        # Step 6: Monitor Scan
+        ${monitor_result}=    Execute Scan Monitoring Step
+        ...    ${scan_result}[scan_id]
+        ...    ${created_site_id}
+        
+        Set To Dictionary    ${results}    scan_status    ${monitor_result}[status]
+        Set To Dictionary    ${results}    scan_elapsed_time    ${monitor_result}[elapsed_time]
+        
+        # Step 7: Validate Scan Completion
+        ${scan_details}=    Execute Scan Validation Step
+        ...    ${scan_result}[scan_id]
+        ...    ${created_site_id}
+        ...    ${validate_compliance}
+        ...    ${expected_vuln_count}
+        
+        Set To Dictionary    ${results}    scan_details    ${scan_details}
+        
+        # Step 8: Get Policy Natural ID (for first policy)
+        ${policy_natural_ids}=    Execute Policy Natural ID Retrieval Step
+        ...    ${template_result}[formatted_policies]
+        
+        Set To Dictionary    ${results}    policy_natural_ids    ${policy_natural_ids}
+        
+        # Step 9: Generate Report
+        ${report_result}=    Execute Report Generation Step
+        ...    ${created_site_id}
+        ...    ${policy_natural_ids}
+        
+        Set To Dictionary    ${results}    report_ids    ${report_result}[report_ids]
+        
+        # Step 10: Validate Report from CSV
+        ${validation_result}=    Execute Report Validation Step
+        ...    ${report_result}[report_ids]
+        ...    ${csv_file}
+            
+        Set To Dictionary    ${results}    validation_passed    ${validation_result}[passed]
+        Set To Dictionary    ${results}    validation_failed    ${validation_result}[failed]
+        Set To Dictionary    ${results}    os_name    ${os_name}
+        Set To Dictionary    ${results}    benchmark    ${benchmark}
+        Set To Dictionary    ${results}    version    ${version}
+        
+        # Step 11: Validate Compliance Results
+        Validate Compliance Results
+        ...    os_name=${os_name}
+        ...    benchmark=${benchmark}
+        ...    version=${version}
+        ...    validation_passed=${validation_result}[passed]
+        ...    validation_failed=${validation_result}[failed]
+    FINALLY
+        # Automatic cleanup - runs regardless of test pass/fail
+        Cleanup Test Resources    ${created_site_id}    ${template_id}
+    END
     
     RETURN    ${results}
 
@@ -554,7 +569,11 @@ Execute Template Processing Step
     Log    OS Name: ${os_name}    console=True
     Log    Version: ${version}    console=True
     Log    Policies: ${policy_list}    console=True
-    Log    Template Name: ${template_name}    console=True
+    Log    Template Name (Base): ${template_name}    console=True
+    
+    # Generate unique template name for parallel execution safety
+    ${unique_template_name}=    Generate Unique Name    ${template_name}
+    Log    Template Name (Unique): ${unique_template_name}    console=True
     Log    ========================================    console=True
     
     # Process template
@@ -563,7 +582,7 @@ Execute Template Processing Step
     ...    ${os_name}
     ...    ${version}
     ...    ${policy_list}
-    ...    ${template_name}
+    ...    ${unique_template_name}
     
     Log    Template processing complete. Deprecated count: ${template_result}[deprecated_count]    console=True
     
@@ -580,7 +599,7 @@ Execute Template Processing Step
     
     # Create scan template
     ${template_xml}=    Set Variable    ${template_result}[template_xml]
-    ${create_result}=    Create Scan Template    ${template_xml}    ${template_name}
+    ${create_result}=    Create Scan Template    ${template_xml}    ${unique_template_name}
     ${scan_template_id}=    Set Variable    ${create_result}[template_id]
     
     Log    ✓ Template created - ID: ${scan_template_id}, Title: ${create_result}[template_title]    console=True
@@ -614,7 +633,11 @@ Execute Site Creation Step
     Log    ========================================    console=True
     Log    STEP 4: CREATING/UPDATING SITE    console=True
     Log    ========================================    console=True
-    Log    Site Name: ${site_name}    console=True
+    Log    Site Name (Base): ${site_name}    console=True
+    
+    # Generate unique site name for parallel execution safety
+    ${unique_site_name}=    Generate Unique Name    ${site_name}
+    Log    Site Name (Unique): ${unique_site_name}    console=True
     Log    Engine ID: ${engine_id}    console=True
     Log    Template ID: ${scan_template_id}    console=True
     Log    VM Config Path: ${benchmark} → ${vm_os} → ${vm_version} → @{vm_cred_types}    console=True
@@ -625,7 +648,7 @@ Execute Site Creation Step
         Log    Updating existing site ID: ${site_id}    console=True
         ${result_site_id}=    Update Site With VM Config
         ...    ${site_id}
-        ...    ${site_name}
+        ...    ${unique_site_name}
         ...    ${benchmark}
         ...    ${vm_os}
         ...    ${vm_version}
@@ -637,7 +660,7 @@ Execute Site Creation Step
     ELSE
         Log    Creating new site    console=True
         ${result_site_id}=    Create Site With VM Config
-        ...    ${site_name}
+        ...    ${unique_site_name}
         ...    ${benchmark}
         ...    ${vm_os}
         ...    ${vm_version}
@@ -797,9 +820,8 @@ Execute Report Generation Step
     ${var_name}=    Evaluate    list($policy_natural_ids.keys())[0]
     ${natural_id}=    Get From Dictionary    ${policy_natural_ids}    ${var_name}
     
-    # Create descriptive report name with timestamp to avoid collisions
-    ${timestamp}=    Evaluate    int(__import__('time').time())
-    ${report_name}=    Set Variable    XCCDF_Report_${var_name}_${timestamp}
+    # Create descriptive report name with unique ID for parallel execution safety
+    ${report_name}=    Generate Unique Report Name    ${var_name}
     
     Log    Policy Variable: ${var_name}    console=True
     Log    Natural ID: ${natural_id}    console=True
@@ -981,6 +1003,23 @@ Cleanup Test Resources
     Log    ========================================    console=True
     Log    ✓ CLEANUP COMPLETE    console=True
     Log    ========================================    console=True
+
+
+Safe Cleanup Test Resources
+    [Documentation]    Safe cleanup that works even when test fails
+    ...    
+    ...    This keyword retrieves site_id and template_id from test variables
+    ...    and performs cleanup. Works even if the main test execution failed.
+    ...    
+    ...    Should be used as [Teardown] with test-level variables ${SITE_ID} and ${TEMPLATE_ID}
+    
+    # Get IDs from test variables (set to EMPTY if not found)
+    # Using Get Variable Value with string literals to avoid static analysis errors
+    ${site_id}=    Get Variable Value    \${SITE_ID}    ${EMPTY}
+    ${template_id}=    Get Variable Value    \${TEMPLATE_ID}    ${EMPTY}
+    
+    # Call standard cleanup
+    Cleanup Test Resources    ${site_id}    ${template_id}
 
 
 Delete Scan Template

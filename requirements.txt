@@ -1,0 +1,13 @@
+# Robot Framework Core
+robotframework>=7.0.0
+
+# Robot Framework Libraries
+robotframework-requests>=0.9.4
+robotframework-pabot>=2.18.0
+
+# XML/JSON Processing
+lxml>=4.9.0
+
+# Utilities
+PyYAML>=6.0
+requests>=2.31.0

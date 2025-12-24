@@ -1,0 +1,38 @@
+# Pabot Argument File with Resource Locks
+# Tests using the same VM credentials will run sequentially
+# Different VMs can run in parallel
+
+# Test directory
+tests
+
+# Resource locks per suite
+# CIS.Aache.Tomcat9_benchmark uses CIS_Apache_Tomcat_9
+--lock
+CIS_Apache_Tomcat_9:CIS.Aache.Tomcat9_benchmark
+# CIS.Linux.RHEL.RHEL9benchmarks uses CIS_RHEL_9
+--lock
+CIS_RHEL_9:CIS.Linux.RHEL.RHEL9benchmarks
+# CIS.Linux.Ubuntu.ubuntu_20.04_benchmarks uses CIS_Ubuntu_Ubuntu-20-04
+--lock
+CIS_Ubuntu_Ubuntu-20-04:CIS.Linux.Ubuntu.ubuntu_20.04_benchmarks
+# CIS.Linux.Ubuntu.ubuntu_24.04_benchmarks uses CIS_Ubuntu_Ubuntu-24-04
+--lock
+CIS_Ubuntu_Ubuntu-24-04:CIS.Linux.Ubuntu.ubuntu_24.04_benchmarks
+# CIS.Linux.ngnixbenchmark uses CIS_NGINX_NGINX
+--lock
+CIS_NGINX_NGINX:CIS.Linux.ngnixbenchmark
+# CIS.Oracle.oracle19cbenchmark uses CIS_ORACLE_19C
+--lock
+CIS_ORACLE_19C:CIS.Oracle.oracle19cbenchmark
+# CIS.Windows.windows_server_2019_standard uses CIS_Microsoft_Windows-Server-2019
+--lock
+CIS_Microsoft_Windows-Server-2019:CIS.Windows.windows_server_2019_standard
+# CIS.Windows.windows_server_2022_stig_benchmark uses CIS_Windows_2022
+--lock
+CIS_Windows_2022:CIS.Windows.windows_server_2022_stig_benchmark
+# CIS.Windows.windows_sever_2019_standalone uses CIS_Microsoft_Windows-Server-2019
+--lock
+CIS_Microsoft_Windows-Server-2019:CIS.Windows.windows_sever_2019_standalone
+# DISA.windows10benchmark uses CIS_Microsoft_Windows-10
+--lock
+CIS_Microsoft_Windows-10:DISA.windows10benchmark
